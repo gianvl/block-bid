@@ -1,0 +1,16 @@
+{
+  "name": "blockbid",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sealed-bid auction using commit-reveal on a local Hardhat blockchain",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy": "hardhat run scripts/deploy.js --network localhost"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.17"
+  }
+}
