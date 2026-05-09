@@ -30,16 +30,19 @@ export default function RevealForm({ account, onChanged }) {
   }
 
   return (
-    <section className="card">
-      <h3>Reveal your bid</h3>
-      <p className="muted">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+      <h3 className="text-lg font-semibold text-zinc-50">Reveal your bid</h3>
+      <p className="mt-1 text-sm text-zinc-400">
         {saved
-          ? "Loaded from your browser. Click reveal to submit."
-          : "No saved bid for this account. Paste your bid and secret to reveal."}
+          ? "Loaded from this browser. Click reveal to open your bid on-chain."
+          : "No saved bid for this account. Paste your bid amount and secret to reveal."}
       </p>
-      <form onSubmit={submit} className="stack">
-        <label>
-          Bid (ETH)
+
+      <form onSubmit={submit} className="mt-5 space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-zinc-400">
+            Bid (ETH)
+          </span>
           <input
             type="number"
             step="0.01"
@@ -47,20 +50,30 @@ export default function RevealForm({ account, onChanged }) {
             value={amountEth}
             onChange={(e) => setAmountEth(e.target.value)}
             required
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
           />
         </label>
-        <label>
-          Secret
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-zinc-400">
+            Secret
+          </span>
           <input
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
             required
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
           />
         </label>
-        <button type="submit" disabled={busy || !amountEth || !secret}>
+
+        <button
+          type="submit"
+          disabled={busy || !amountEth || !secret}
+          className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+        >
           {busy ? "Revealing…" : "Reveal bid"}
         </button>
-        {error && <p className="error">{error}</p>}
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
       </form>
     </section>
   );
