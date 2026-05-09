@@ -1,46 +1,119 @@
-import { ethers } from "ethers";
-import { deploymentInfo } from "./lib/auction.js";
+import { useCallback, useEffect, useState } from "react";
+import { getContract, PHASE } from "./lib/auction.js";
 import { ACCOUNTS } from "./lib/accounts.js";
+import AccountPicker from "./components/AccountPicker.jsx";
+import StatusPanel from "./components/StatusPanel.jsx";
+import CommitForm from "./components/CommitForm.jsx";
+import RevealForm from "./components/RevealForm.jsx";
+import AuctioneerControls from "./components/AuctioneerControls.jsx";
+import WinnerPanel from "./components/WinnerPanel.jsx";
+
+async function loadState(myAddress) {
+  const c = getContract();
+  const [phase, count, highestBidder, highestBid, myPendingReturn] = await Promise.all([
+    c.phase(),
+    c.bidderCount(),
+    c.highestBidder(),
+    c.highestBid(),
+    c.pendingReturns(myAddress),
+  ]);
+
+  const bidderCount = Number(count);
+  const bidders = await Promise.all(
+    Array.from({ length: bidderCount }, async (_, i) => {
+      const addr = await c.bidders(i);
+      const b = await c.bids(addr);
+      return {
+        address: addr,
+        revealed: b.revealed,
+        amount: b.amount,
+      };
+    }),
+  );
+
+  return {
+    phase: Number(phase),
+    bidders,
+    highestBidder,
+    highestBid,
+    myPendingReturn,
+  };
+}
 
 export default function App() {
+  const [account, setAccount] = useState(ACCOUNTS[0]);
+  const [state, setState] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setState(await loadState(account.address));
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err.shortMessage || err.message);
+    }
+  }, [account.address]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const myCommit = state?.bidders.find(
+    (b) => b.address.toLowerCase() === account.address.toLowerCase(),
+  );
+
   return (
-    <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
-      <h1>BlockBid</h1>
-      <p>Sealed-bid auction with commit-reveal on a local Hardhat chain.</p>
+    <main>
+      <header className="topbar">
+        <h1>BlockBid</h1>
+        <AccountPicker value={account} onChange={setAccount} />
+      </header>
 
-      <section>
-        <h2>Deployment</h2>
-        <ul>
-          <li>
-            <strong>Item:</strong> {deploymentInfo.item}
-          </li>
-          <li>
-            <strong>Contract:</strong>{" "}
-            <code>{deploymentInfo.address}</code>
-          </li>
-          <li>
-            <strong>Deposit:</strong>{" "}
-            {ethers.formatEther(deploymentInfo.depositWei)} ETH
-          </li>
-          <li>
-            <strong>Auctioneer:</strong>{" "}
-            <code>{deploymentInfo.auctioneer}</code>
-          </li>
-        </ul>
+      {loadError && (
+        <p className="error">
+          Could not reach the contract: {loadError}. Is the Hardhat node running and
+          has <code>scripts/deploy.js</code> been executed?
+        </p>
+      )}
 
-        <h2>Accounts available</h2>
-        <ul>
-          {ACCOUNTS.map((a) => (
-            <li key={a.address}>
-              {a.label} — <code>{a.address}</code>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {state && (
+        <div className="grid">
+          <StatusPanel state={state} />
 
-      <p style={{ opacity: 0.7 }}>
-        Wallet wiring imported. Auction UI lands in the next commit.
-      </p>
+          {account.role === "auctioneer" ? (
+            <AuctioneerControls account={account} state={state} onChanged={refresh} />
+          ) : state.phase === PHASE.Commit ? (
+            myCommit ? (
+              <section className="card">
+                <h3>You've committed</h3>
+                <p className="muted">
+                  Waiting for the commit phase to close, then reveal.
+                </p>
+              </section>
+            ) : (
+              <CommitForm key={account.address} account={account} onChanged={refresh} />
+            )
+          ) : state.phase === PHASE.Reveal ? (
+            myCommit?.revealed ? (
+              <section className="card">
+                <h3>You've revealed</h3>
+                <p className="muted">Waiting for the reveal phase to close.</p>
+              </section>
+            ) : myCommit ? (
+              <RevealForm key={account.address} account={account} onChanged={refresh} />
+            ) : (
+              <section className="card">
+                <h3>You did not commit</h3>
+                <p className="muted">Nothing to reveal for this account.</p>
+              </section>
+            )
+          ) : null}
+
+          {state.phase === PHASE.Ended && (
+            <WinnerPanel account={account} state={state} onChanged={refresh} />
+          )}
+        </div>
+      )}
     </main>
   );
 }
